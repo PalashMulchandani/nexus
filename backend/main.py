@@ -1,4 +1,4 @@
-from agent import search_web
+from agent import run_research_agent
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,23 +27,12 @@ class ResearchRequest(BaseModel):
 def root():
     return {"message": "Nexus API is running"}
 
-from agent import search_web
+from agent import run_research_agent
 
 @app.post("/research")
 def research(request: ResearchRequest):
-    # Step 1: Search web
-    sources = search_web(request.topic)
-    
-    # Step 2: Build context from sources
-    context = "\n\n".join([f"Source: {s['title']}\n{s['content']}" for s in sources])
-    
-    # Step 3: Gemini summarizes based on real web data
-    response = model.generate_content(
-        f"Based on these real web sources, give a structured research summary on '{request.topic}':\n\n{context}"
-    )
-    
+    result = run_research_agent(request.topic)
     return {
         "topic": request.topic,
-        "result": response.text,
-        "sources": sources
+        "result": result
     }
