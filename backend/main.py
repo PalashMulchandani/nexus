@@ -22,6 +22,7 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 
 class ResearchRequest(BaseModel):
     topic: str
+    custom_instruction: str = None
 
 @app.get("/")
 def root():
@@ -31,7 +32,7 @@ from agent import run_research_agent
 
 @app.post("/research")
 def research(request: ResearchRequest):
-    result = run_research_agent(request.topic)
+    result = run_research_agent(request.topic, request.custom_instruction)
     return {
         "topic": request.topic,
         "result": result

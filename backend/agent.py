@@ -50,20 +50,30 @@ tools = [search_tool]
 # Create agent
 agent = create_react_agent(llm, tools)
 
-def run_research_agent(topic: str):
-    # Check memory first
-    past = search_memory(topic)
-    if past:
-        context = "\n\n".join(past)
-        memory_prompt = f"Based on past research: {context}\n\nNow research more on: {topic}"
+def run_research_agent(topic: str, custom_instruction: str = None):
+    # Check cache first (skip if it's a follow-up customization request)
+    if not custom_instruction:
+        past = search_memory(topic)
+        if past:
+            return past[0] + "\n\n*(Retrieved from cache — previously researched)*"
+
+    # Build the research prompt
+    if custom_instruction:
+        prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {search_memory(topic)}"
     else:
-        memory_prompt = f"Research this topic thoroughly and give a detailed structured report: {topic}"
+        prompt = f"Research this topic thoroughly and give a detailed structured report: {topic}"
 
     result = agent.invoke({
-        "messages": [{"role": "user", "content": memory_prompt}]
+        "messages": [{"role": "user", "content": prompt}]
     })
     
     final = result["messages"][-1].content
+    
+    # Save to memory only for fresh research, not customizations
+    if not custom_instruction:
+        save_to_memory(topic, final)
+    
+    return final
     
     # Save to memory
     save_to_memory(topic, final)

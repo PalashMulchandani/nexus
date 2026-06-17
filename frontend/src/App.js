@@ -1,3 +1,4 @@
+import jsPDF from 'jspdf';
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +24,8 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [trail, setTrail] = useState([]);
-
+  const [followUp, setFollowUp] = useState('');
+  const [followUpLoading, setFollowUpLoading] = useState(false);
   useEffect(() => {
     let id = 0;
     const moveCursor = (e) => {
@@ -47,32 +49,62 @@ function App() {
     setLoading(true);
     setResult('');
 
-    setTimeout(() => {
-      const report = `# Research Report: ${topic}
-
-## Overview
-This is a sample structured report to test the UI design and formatting before connecting live data.
-
-## Key Findings
-1. First major insight about the topic
-2. Second important data point
-3. Third relevant observation
-
-## Detailed Analysis
-This section would contain deeper analysis based on multiple web sources, properly summarized and structured for easy reading.
-
-## Conclusion
-A wrap up summary tying together the key findings and their implications.`;
-      setResult(report);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await response.json();
+      setResult(data.result);
       setHistory((prev) => [{ topic, time: new Date().toLocaleTimeString(), date: 'Today' }, ...prev].slice(0, 12));
-      setLoading(false);
-    }, 2000);
+    } catch (error) {
+      setResult('Something went wrong. Make sure the backend is running.');
+    }
+    setLoading(false);
+  };
+  const handleFollowUp = async () => {
+    if (!followUp.trim()) return;
+    setFollowUpLoading(true);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, custom_instruction: followUp }),
+      });
+      const data = await response.json();
+      setResult(data.result);
+      setFollowUp('');
+    } catch (error) {
+      alert('Something went wrong with the follow-up request.');
+    }
+    setFollowUpLoading(false);
   };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(result);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxWidth = pageWidth - margin * 2;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(`Research Report: ${topic}`, margin, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+
+    const cleanText = result.replace(/[#*]/g, '');
+    const lines = doc.splitTextToSize(cleanText, maxWidth);
+    doc.text(lines, margin, 35);
+
+    doc.save(`nexus-research-${topic.replace(/\s+/g, '-')}.pdf`);
   };
 
   const groupedHistory = history.reduce((acc, item) => {
@@ -375,21 +407,35 @@ A wrap up summary tying together the key findings and their implications.`;
                             >
                               {copied ? '✓ Copied' : 'Copy'}
                             </button>
-                            <button className="text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition">
-                              Export PDF
-                            </button>
+                            <button
+  onClick={handleExportPDF}
+  className="text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition"
+>
+  Export PDF
+</button>
                           </div>
                         </div>
                         <div className="prose prose-gray dark:prose-invert max-w-none prose-headings:font-display">
                           <ReactMarkdown>{result}</ReactMarkdown>
                         </div>
-                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10">
-                          <input
-                            type="text"
-                            placeholder="Ask a follow-up or request changes..."
-                            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-primary-500 transition"
-                          />
-                        </div>
+                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10 flex gap-2">
+  <input
+    type="text"
+    value={followUp}
+    onChange={(e) => setFollowUp(e.target.value)}
+    onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
+    placeholder="Ask a follow-up or request changes..."
+    disabled={followUpLoading}
+    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-primary-500 transition disabled:opacity-50"
+  />
+  <button
+    onClick={handleFollowUp}
+    disabled={followUpLoading}
+    className="px-4 py-3 rounded-xl bg-primary-500/10 text-primary-500 text-sm font-medium hover:bg-primary-500/20 transition disabled:opacity-50"
+  >
+    {followUpLoading ? '...' : 'Send'}
+  </button>
+</div>
                         <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-4">
                           Nexus can make mistakes. Verify important facts independently.
                         </p>
