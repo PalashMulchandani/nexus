@@ -35,7 +35,7 @@ def search_memory(query: str):
     return []
 # LLM
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash-001",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0.3
 )
