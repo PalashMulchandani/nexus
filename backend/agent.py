@@ -30,8 +30,10 @@ def search_memory(query: str):
         query_texts=[query],
         n_results=min(3, count)
     )
-    if results["documents"][0]:
-        return results["documents"][0]
+    if results["documents"][0] and results["distances"][0]:
+        # Only trust the match if it's genuinely similar (low distance = high similarity)
+        if results["distances"][0][0] < 0.5:
+            return results["documents"][0]
     return []
 # LLM
 import random

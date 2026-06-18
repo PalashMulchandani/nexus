@@ -56,6 +56,7 @@ function App() {
         body: JSON.stringify({ topic }),
       });
       const data = await response.json();
+      console.log('API Response:', data);
       setResult(data.result);
       setHistory((prev) => [{ topic, time: new Date().toLocaleTimeString(), date: 'Today' }, ...prev].slice(0, 12));
     } catch (error) {
@@ -90,19 +91,31 @@ function App() {
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     const maxWidth = pageWidth - margin * 2;
+    const lineHeight = 7;
+    let y = 20;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(`Research Report: ${topic}`, margin, 20);
+    doc.text(`Research Report: ${topic}`, margin, y);
+    y += 15;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
 
     const cleanText = result.replace(/[#*]/g, '');
     const lines = doc.splitTextToSize(cleanText, maxWidth);
-    doc.text(lines, margin, 35);
+
+    lines.forEach((line) => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;
+    });
 
     doc.save(`nexus-research-${topic.replace(/\s+/g, '-')}.pdf`);
   };
