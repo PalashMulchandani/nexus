@@ -1,4 +1,4 @@
-from agent import run_research_agent
+from agent import run_research_agent, get_all_history
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -37,3 +37,7 @@ def research(request: ResearchRequest):
         "topic": request.topic,
         "result": result
     }
+@app.get("/history")
+def get_history():
+    history = get_all_history()
+    return {"history": history}

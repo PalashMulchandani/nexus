@@ -35,6 +35,19 @@ def search_memory(query: str):
         if results["distances"][0][0] < 0.5:
             return results["documents"][0]
     return []
+def get_all_history():
+    count = collection.count()
+    if count == 0:
+        return []
+    
+    all_data = collection.get()
+    history = []
+    for i, metadata in enumerate(all_data["metadatas"]):
+        history.append({
+            "topic": metadata.get("topic", "Unknown"),
+            "id": all_data["ids"][i]
+        })
+    return history
 # LLM
 import random
 

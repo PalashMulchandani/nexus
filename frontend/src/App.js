@@ -43,6 +43,19 @@ function App() {
       clearInterval(fadeInterval);
     };
   }, []);
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/history')
+      .then((res) => res.json())
+      .then((data) => {
+        const formattedHistory = data.history.map((item) => ({
+          topic: item.topic,
+          time: '',
+          date: 'Previously researched'
+        }));
+        setHistory(formattedHistory);
+      })
+      .catch((err) => console.log('Could not load history:', err));
+  }, []);
 
   const handleResearch = async () => {
     if (!topic.trim()) return;
