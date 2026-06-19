@@ -1,6 +1,6 @@
 import chromadb
 from chromadb.utils import embedding_functions
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
@@ -50,28 +50,12 @@ def get_all_history():
         })
     return history
 # LLM
-import random
-
-GEMINI_KEYS = [
-    os.getenv("GEMINI_API_KEY"),
-    os.getenv("GEMINI_API_KEY_2"),
-]
-GEMINI_KEYS = [k for k in GEMINI_KEYS if k]  # remove empty ones
-
-current_key_index = 0
-
 def get_llm():
-    global current_key_index
-    key = GEMINI_KEYS[current_key_index]
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=key,
+    return ChatGroq(
+        model="llama-3.3-70b-versatile",
+        groq_api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.3
     )
-
-def rotate_key():
-    global current_key_index
-    current_key_index = (current_key_index + 1) % len(GEMINI_KEYS)
 
 llm = get_llm()
 
@@ -86,8 +70,6 @@ tools = [search_tool]
 agent = create_react_agent(llm, tools)
 
 def run_research_agent(topic: str, custom_instruction: str = None):
-    global agent, llm
-
     if not custom_instruction:
         past = search_memory(topic)
         if past:
@@ -96,37 +78,31 @@ def run_research_agent(topic: str, custom_instruction: str = None):
     if custom_instruction:
         prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {search_memory(topic)}"
     else:
-        prompt = f"Research this topic thoroughly and give a detailed structured report: {topic}"
+        prompt = f"""Research this topic thoroughly: {topic}
 
-    max_retries = len(GEMINI_KEYS)
-    last_error = None
+Write a comprehensive, detailed report with the following structure:
+1. A clear title
+2. An introduction/overview section (2-3 paragraphs)
+3. At least 3-4 main sections with headers, each containing detailed information, examples, and context (3-4 paragraphs each)
+4. A conclusion section
 
-    for attempt in range(max_retries):
-        try:
-            result = agent.invoke({
-                "messages": [{"role": "user", "content": prompt}]
-            })
-            raw_content = result["messages"][-1].content
+Make the report substantial and informative — aim for depth and thoroughness, not brevity. Use markdown formatting with ## for headers."""
 
-            if isinstance(raw_content, list):
-                final = " ".join([block.get("text", "") for block in raw_content if isinstance(block, dict)])
-            else:
-                final = raw_content
+    try:
+        result = agent.invoke({
+            "messages": [{"role": "user", "content": prompt}]
+        })
+        raw_content = result["messages"][-1].content
 
-            if not custom_instruction:
-                save_to_memory(topic, final)
+        if isinstance(raw_content, list):
+            final = " ".join([block.get("text", "") for block in raw_content if isinstance(block, dict)])
+        else:
+            final = raw_content
 
-            return final
+        if not custom_instruction:
+            save_to_memory(topic, final)
 
-        except Exception as e:
-            last_error = e
-            error_str = str(e).lower()
-            if "quota" in error_str or "429" in error_str or "unauthenticated" in error_str or "unsupported" in error_str:
-                print(f"Key {current_key_index} hit quota limit. Rotating to next key...")
-                rotate_key()
-                llm = get_llm()
-                agent = create_react_agent(llm, tools)
-            else:
-                raise e
+        return final
 
-    return f"All API keys exhausted for today. Please try again tomorrow. Error: {str(last_error)}"
+    except Exception as e:
+        return f"Something went wrong while researching. Error: {str(e)}"
