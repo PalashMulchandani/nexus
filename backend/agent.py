@@ -8,7 +8,7 @@ import os
 
 load_dotenv()
 # ChromaDB setup
-chroma_client = chromadb.Client()
+chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(
     name="nexus_research"
 )
@@ -45,7 +45,8 @@ def get_all_history():
     for i, metadata in enumerate(all_data["metadatas"]):
         history.append({
             "topic": metadata.get("topic", "Unknown"),
-            "id": all_data["ids"][i]
+            "id": all_data["ids"][i],
+            "report": all_data["documents"][i]
         })
     return history
 # LLM

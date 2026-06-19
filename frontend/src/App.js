@@ -50,7 +50,8 @@ function App() {
         const formattedHistory = data.history.map((item) => ({
           topic: item.topic,
           time: '',
-          date: 'Previously researched'
+          date: 'Previously researched',
+          report: item.report
         }));
         setHistory(formattedHistory);
       })
@@ -262,10 +263,15 @@ function App() {
                         <div className="space-y-1">
                           {items.map((item, i) => (
                             <button
-                              key={i}
-                              onClick={() => setTopic(item.topic)}
-                              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
-                            >
+  key={i}
+  onClick={() => {
+    setTopic(item.topic);
+    if (item.report) {
+      setResult(item.report);
+    }
+  }}
+  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
+>
                               <p className="text-sm font-medium truncate group-hover:text-primary-500 transition">
                                 {item.topic}
                               </p>
