@@ -121,7 +121,7 @@ def run_research_agent(topic: str, custom_instruction: str = None):
         except Exception as e:
             last_error = e
             error_str = str(e).lower()
-            if "quota" in error_str or "429" in error_str:
+            if "quota" in error_str or "429" in error_str or "unauthenticated" in error_str or "unsupported" in error_str:
                 print(f"Key {current_key_index} hit quota limit. Rotating to next key...")
                 rotate_key()
                 llm = get_llm()
