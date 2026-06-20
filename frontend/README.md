@@ -1,70 +1,123 @@
-# Getting Started with Create React App
+# Nexus — Autonomous AI Research Agent
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Nexus is an AI-powered research assistant that autonomously searches the live web, reasons through multiple sources, and generates structured research reports — all without manual digging.
 
-## Available Scripts
+Unlike typical "ChatGPT wrapper" projects, Nexus uses an agentic architecture (LangGraph + ReAct pattern) to plan its own search strategy, retrieve real-time information, and refine its findings based on user feedback.
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Live Demo
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+🔗 **[Try Nexus live](#)** *(add your deployed link here)*
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Autonomous Research Agent** — Plans its own search queries, reads results, and decides whether more research is needed before finalizing a report
+- **Live Web Search** — Powered by Tavily, pulling real-time information instead of relying on stale training data
+- **Persistent Memory** — Uses ChromaDB to cache past research, enabling instant retrieval for repeated topics
+- **Follow-up Customization** — Users can refine generated reports with natural language instructions (e.g. "make it shorter," "focus on India")
+- **PDF Export** — Download any research report as a formatted PDF
+- **Session-based History** — Each visitor gets their own private research history
+- **Polished UI** — Dark/light mode, smooth animations, responsive design
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Tech Stack
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+**Frontend**
+- React
+- Tailwind CSS
+- Framer Motion (animations)
+- jsPDF (PDF export)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+**Backend**
+- FastAPI (Python)
+- LangGraph (agent orchestration)
+- Groq API (LLM — Llama 3.3 70B)
+- Tavily API (web search)
+- ChromaDB (vector memory & caching)
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## How It Works
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. **User submits a topic** through the frontend
+2. **Agent plans its approach** — decides what to search for
+3. **Tavily searches the live web** for relevant, current sources
+4. **Agent reads and reasons** over the results, deciding if more searches are needed
+5. **A structured report is generated** and cached in ChromaDB
+6. **User can refine the report** with follow-up instructions or export it as a PDF
+User Input → Agent Planning → Web Search → Reasoning Loop → Structured Report → Cache
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Project Structure
+nexus/
 
-## Learn More
+├── backend/
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+│   ├── main.py          # FastAPI server & API endpoints
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+│   ├── agent.py         # LangGraph agent, memory, and research logic
 
-### Code Splitting
+│   ├── requirements.txt
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+│   └── .env             # API keys (not committed)
 
-### Analyzing the Bundle Size
+└── frontend/
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+└── src/
 
-### Making a Progressive Web App
+└── App.js       # Main React application
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Running Locally
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Backend
 
-### Deployment
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Frontend
 
-### `npm run build` fails to minify
+```bash
+cd frontend
+npm install
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Environment Variables
+
+Create a `.env` file inside `backend/` with:
+GROQ_API_KEY=your_groq_api_key
+
+TAVILY_API_KEY=your_tavily_api_key
+
+---
+
+## Why Nexus Is Different
+
+Most student AI projects are simple wrappers — send a prompt, get a response. Nexus instead implements a genuine **agentic loop**: the system reasons about what it doesn't know, searches for it, evaluates the results, and only then produces output. This mirrors how production AI agents are built in the industry, rather than a single API call dressed up with a UI.
+
+---
+
+## Author
+
+Built by **Palash Mulchandani**
+
+- GitHub: [PalashMulchandani](https://github.com/PalashMulchandani)
+- LinkedIn: [palash-mulchandani](https://www.linkedin.com/in/palash-mulchandani-29a326378/)
+
+---
+
+## License
+
+MIT License — feel free to use and learn from this project.
