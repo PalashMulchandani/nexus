@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 function getSmoothPath(points) {
   if (points.length < 2) return '';
@@ -12,6 +13,83 @@ function getSmoothPath(points) {
     path += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
   }
   return path;
+}
+
+function getSessionId() {
+  let id = localStorage.getItem('nexus_session_id');
+  if (!id) {
+    id = 'sess_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    localStorage.setItem('nexus_session_id', id);
+  }
+  return id;
+}
+
+function TiltCard({ children, className }) {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [hovering, setHovering] = useState(false);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    setTilt({ x: (0.5 - py) * 35, y: (px - 0.5) * 35 });
+  };
+
+  return (
+    <motion.div
+      onMouseEnter={() => setHovering(true)}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => {
+        setHovering(false);
+        setTilt({ x: 0, y: 0 });
+      }}
+      style={{
+        transform: `perspective(500px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.06 : 1})`,
+        transition: 'transform 0.15s ease-out',
+        boxShadow: hovering ? '0 20px 40px -10px rgba(168, 85, 247, 0.3)' : 'none',
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+const THINKING_STAGES = [
+  { icon: '🔍', text: 'Searching the web...' },
+  { icon: '📖', text: 'Reading sources...' },
+  { icon: '🧠', text: 'Synthesizing findings...' },
+  { icon: '✍️', text: 'Writing report...' },
+];
+
+function AgentThinkingLoader() {
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStageIndex((prev) => (prev + 1) % THINKING_STAGES.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+      <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={stageIndex}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center gap-2"
+        >
+          <span className="text-xl">{THINKING_STAGES[stageIndex].icon}</span>
+          <span>{THINKING_STAGES[stageIndex].text}</span>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function App() {
@@ -26,6 +104,8 @@ function App() {
   const [trail, setTrail] = useState([]);
   const [followUp, setFollowUp] = useState('');
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [sessionId] = useState(getSessionId());
+
   useEffect(() => {
     let id = 0;
     const moveCursor = (e) => {
@@ -43,9 +123,9 @@ function App() {
       clearInterval(fadeInterval);
     };
   }, []);
+
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/history')
-      .then((res) => res.json())
+    fetch(`${API_URL}/history?session_id=${sessionId}`)
       .then((data) => {
         const formattedHistory = data.history.map((item) => ({
           topic: item.topic,
@@ -56,7 +136,7 @@ function App() {
         setHistory(formattedHistory);
       })
       .catch((err) => console.log('Could not load history:', err));
-  }, []);
+  }, [sessionId]);
 
   const handleResearch = async () => {
     if (!topic.trim()) return;
@@ -64,29 +144,33 @@ function App() {
     setResult('');
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/research', {
+      const response = await fetch(`${API_URL}/research`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic, session_id: sessionId }),
       });
       const data = await response.json();
       console.log('API Response:', data);
       setResult(data.result);
-      setHistory((prev) => [{ topic, time: new Date().toLocaleTimeString(), date: 'Today' }, ...prev].slice(0, 12));
+      setHistory((prev) => [
+        { topic, time: new Date().toLocaleTimeString(), date: 'Today', report: data.result },
+        ...prev
+      ].slice(0, 12));
     } catch (error) {
       setResult('Something went wrong. Make sure the backend is running.');
     }
     setLoading(false);
   };
+
   const handleFollowUp = async () => {
     if (!followUp.trim()) return;
     setFollowUpLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/research', {
+      const response = await fetch(`${API_URL}/research`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, custom_instruction: followUp }),
+        body: JSON.stringify({ topic, session_id: sessionId, custom_instruction: followUp }),
       });
       const data = await response.json();
       setResult(data.result);
@@ -102,6 +186,7 @@ function App() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -142,7 +227,7 @@ function App() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen relative bg-white dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
+      <div className="min-h-screen relative bg-[#fafaf9] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
 
         {/* Cursor glow trail */}
         <svg className="hidden md:block pointer-events-none fixed inset-0 z-50 w-full h-full">
@@ -186,9 +271,14 @@ function App() {
               ☰
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center font-display font-bold text-white shadow-lg shadow-primary-500/30">
-                N
-              </div>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shadow-lg shadow-primary-500/30">
+  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+    <circle cx="6" cy="6" r="2" fill="white"/>
+    <circle cx="18" cy="6" r="2" fill="white"/>
+    <circle cx="12" cy="18" r="2" fill="white"/>
+    <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+</div>
               <span className="font-display font-bold text-xl">Nexus</span>
             </div>
           </div>
@@ -263,15 +353,15 @@ function App() {
                         <div className="space-y-1">
                           {items.map((item, i) => (
                             <button
-  key={i}
-  onClick={() => {
-    setTopic(item.topic);
-    if (item.report) {
-      setResult(item.report);
-    }
-  }}
-  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
->
+                              key={i}
+                              onClick={() => {
+                                setTopic(item.topic);
+                                if (item.report) {
+                                  setResult(item.report);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
+                            >
                               <p className="text-sm font-medium truncate group-hover:text-primary-500 transition">
                                 {item.topic}
                               </p>
@@ -348,15 +438,14 @@ function App() {
                   { icon: '🧠', title: 'Autonomous Agent', desc: 'Plans, searches, and reflects on its own' },
                   { icon: '💾', title: 'Remembers Context', desc: 'Builds on your past research sessions' },
                 ].map((f, i) => (
-                  <motion.div
+                  <TiltCard
                     key={i}
-                    whileHover={{ y: -4, scale: 1.02 }}
                     className="p-5 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200 dark:border-white/10 text-center cursor-default"
                   >
                     <div className="text-2xl mb-2">{f.icon}</div>
                     <p className="font-semibold text-sm mb-1">{f.title}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{f.desc}</p>
-                  </motion.div>
+                  </TiltCard>
                 ))}
               </motion.div>
             )}
@@ -424,10 +513,7 @@ function App() {
                 >
                   <div className="rounded-2xl bg-gray-50/80 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200 dark:border-white/10 p-8 shadow-xl shadow-black/5">
                     {loading ? (
-                      <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                        <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                        Agent is searching the web and analyzing sources...
-                      </div>
+                      <AgentThinkingLoader />
                     ) : (
                       <>
                         <div className="flex justify-between items-center mb-4">
@@ -440,34 +526,34 @@ function App() {
                               {copied ? '✓ Copied' : 'Copy'}
                             </button>
                             <button
-  onClick={handleExportPDF}
-  className="text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition"
->
-  Export PDF
-</button>
+                              onClick={handleExportPDF}
+                              className="text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition"
+                            >
+                              Export PDF
+                            </button>
                           </div>
                         </div>
                         <div className="prose prose-gray dark:prose-invert max-w-none prose-headings:font-display">
                           <ReactMarkdown>{result}</ReactMarkdown>
                         </div>
                         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10 flex gap-2">
-  <input
-    type="text"
-    value={followUp}
-    onChange={(e) => setFollowUp(e.target.value)}
-    onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
-    placeholder="Ask a follow-up or request changes..."
-    disabled={followUpLoading}
-    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-primary-500 transition disabled:opacity-50"
-  />
-  <button
-    onClick={handleFollowUp}
-    disabled={followUpLoading}
-    className="px-4 py-3 rounded-xl bg-primary-500/10 text-primary-500 text-sm font-medium hover:bg-primary-500/20 transition disabled:opacity-50"
-  >
-    {followUpLoading ? '...' : 'Send'}
-  </button>
-</div>
+                          <input
+                            type="text"
+                            value={followUp}
+                            onChange={(e) => setFollowUp(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
+                            placeholder="Ask a follow-up or request changes..."
+                            disabled={followUpLoading}
+                            className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-primary-500 transition disabled:opacity-50"
+                          />
+                          <button
+                            onClick={handleFollowUp}
+                            disabled={followUpLoading}
+                            className="px-4 py-3 rounded-xl bg-primary-500/10 text-primary-500 text-sm font-medium hover:bg-primary-500/20 transition disabled:opacity-50"
+                          >
+                            {followUpLoading ? '...' : 'Send'}
+                          </button>
+                        </div>
                         <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-4">
                           Nexus can make mistakes. Verify important facts independently.
                         </p>
@@ -484,9 +570,14 @@ function App() {
           <div className="max-w-7xl mx-auto px-6 md:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center font-display font-bold text-white text-sm">
-                  N
-                </div>
+               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center">
+  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+    <circle cx="6" cy="6" r="2" fill="white"/>
+    <circle cx="18" cy="6" r="2" fill="white"/>
+    <circle cx="12" cy="18" r="2" fill="white"/>
+    <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+</div> 
                 <span className="font-display font-bold text-lg">Nexus</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">

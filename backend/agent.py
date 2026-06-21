@@ -7,40 +7,40 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
+
 # ChromaDB setup
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(
     name="nexus_research"
 )
 
-def save_to_memory(topic: str, result: str):
-    existing = collection.get(ids=[f"research_{topic[:50].replace(' ', '_')}"])
+def save_to_memory(topic: str, result: str, session_id: str):
+    doc_id = f"research_{session_id}_{topic[:50].replace(' ', '_')}"
+    existing = collection.get(ids=[doc_id])
     if not existing["ids"]:
         collection.add(
             documents=[result],
-            metadatas=[{"topic": topic}],
-            ids=[f"research_{topic[:50].replace(' ', '_')}"]
+            metadatas=[{"topic": topic, "session_id": session_id}],
+            ids=[doc_id]
         )
 
-def search_memory(query: str):
+def search_memory(query: str, session_id: str):
     count = collection.count()
     if count == 0:
         return []
     results = collection.query(
         query_texts=[query],
-        n_results=min(3, count)
+        n_results=min(3, count),
+        where={"session_id": session_id}
     )
     if results["documents"][0] and results["distances"][0]:
         # Only trust the match if it's genuinely similar (low distance = high similarity)
         if results["distances"][0][0] < 0.5:
             return results["documents"][0]
     return []
-def get_all_history():
-    count = collection.count()
-    if count == 0:
-        return []
-    
-    all_data = collection.get()
+
+def get_all_history(session_id: str):
+    all_data = collection.get(where={"session_id": session_id})
     history = []
     for i, metadata in enumerate(all_data["metadatas"]):
         history.append({
@@ -49,6 +49,7 @@ def get_all_history():
             "report": all_data["documents"][i]
         })
     return history
+
 # LLM
 def get_llm():
     return ChatGroq(
@@ -69,14 +70,14 @@ tools = [search_tool]
 # Create agent
 agent = create_react_agent(llm, tools)
 
-def run_research_agent(topic: str, custom_instruction: str = None):
+def run_research_agent(topic: str, session_id: str, custom_instruction: str = None):
     if not custom_instruction:
-        past = search_memory(topic)
+        past = search_memory(topic, session_id)
         if past:
             return past[0] + "\n\n*(Retrieved from cache — previously researched)*"
 
     if custom_instruction:
-        prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {search_memory(topic)}"
+        prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {search_memory(topic, session_id)}"
     else:
         prompt = f"""Research this topic thoroughly: {topic}
 
@@ -100,7 +101,7 @@ Make the report substantial and informative — aim for depth and thoroughness, 
             final = raw_content
 
         if not custom_instruction:
-            save_to_memory(topic, final)
+            save_to_memory(topic, final, session_id)
 
         return final
 
