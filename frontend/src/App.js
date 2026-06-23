@@ -92,14 +92,66 @@ function AgentThinkingLoader() {
   );
 }
 
+function HistoryList({ historyLoading, groupedHistory, onSelect }) {
+  if (historyLoading) {
+    return (
+      <>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 px-2">
+          Recent Research
+        </h3>
+        <p className="text-sm text-gray-400 dark:text-gray-600 px-2">
+          Loading history...
+        </p>
+      </>
+    );
+  }
+
+  if (Object.keys(groupedHistory).length === 0) {
+    return (
+      <>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 px-2">
+          Recent Research
+        </h3>
+        <p className="text-sm text-gray-400 dark:text-gray-600 px-2">
+          Your research history will appear here.
+        </p>
+      </>
+    );
+  }
+
+  return Object.entries(groupedHistory).map(([date, items]) => (
+    <div key={date} className="mb-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 px-2">
+        {date}
+      </h3>
+      <div className="space-y-1">
+        {items.map((item, i) => (
+          <button
+            key={i}
+            onClick={() => onSelect(item)}
+            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
+          >
+            <p className="text-sm font-medium truncate group-hover:text-primary-500 transition">
+              {item.topic}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-600">{item.time}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  ));
+}
+
 function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
   const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [trail, setTrail] = useState([]);
   const [followUp, setFollowUp] = useState('');
@@ -125,19 +177,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-  fetch(`${API_URL}/history?session_id=${sessionId}`)
-    .then((res) => res.json())
-    .then((data) => {
-      const formattedHistory = (data.history || []).map((item) => ({
-        topic: item.topic,
-        time: '',
-        date: 'Previously researched',
-        report: item.report
-      }));
-      setHistory(formattedHistory);
-    })
-    .catch((err) => console.log('Could not load history:', err));
-}, [sessionId]);
+    setHistoryLoading(true);
+    fetch(`${API_URL}/history?session_id=${sessionId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const formattedHistory = (data.history || []).map((item) => ({
+          topic: item.topic,
+          time: '',
+          date: 'Previously researched',
+          report: item.report
+        }));
+        setHistory(formattedHistory);
+      })
+      .catch((err) => console.log('Could not load history:', err))
+      .finally(() => setHistoryLoading(false));
+  }, [sessionId]);
 
   const handleResearch = async () => {
     if (!topic.trim()) return;
@@ -226,6 +280,14 @@ function App() {
     return acc;
   }, {});
 
+  const handleHistorySelect = (item) => {
+    setTopic(item.topic);
+    if (item.report) {
+      setResult(item.report);
+    }
+    setMobileHistoryOpen(false);
+  };
+
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="min-h-screen relative bg-[#fafaf9] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
@@ -273,13 +335,13 @@ function App() {
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shadow-lg shadow-primary-500/30">
-  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
-    <circle cx="6" cy="6" r="2" fill="white"/>
-    <circle cx="18" cy="6" r="2" fill="white"/>
-    <circle cx="12" cy="18" r="2" fill="white"/>
-    <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-</div>
+                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+                  <circle cx="6" cy="6" r="2" fill="white"/>
+                  <circle cx="18" cy="6" r="2" fill="white"/>
+                  <circle cx="12" cy="18" r="2" fill="white"/>
+                  <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
               <span className="font-display font-bold text-xl">Nexus</span>
             </div>
           </div>
@@ -296,6 +358,13 @@ function App() {
               className="px-4 py-2 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/10 transition"
             >
               {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={() => setMobileHistoryOpen(true)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10"
+              title="History"
+            >
+              🕘
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -323,9 +392,48 @@ function App() {
           )}
         </AnimatePresence>
 
+        {/* Mobile history drawer */}
+        <AnimatePresence>
+          {mobileHistoryOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileHistoryOpen(false)}
+                className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              />
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.25 }}
+                className="lg:hidden fixed top-0 left-0 h-full w-72 bg-white dark:bg-[#0a0a12] z-50 overflow-y-auto border-r border-gray-200 dark:border-white/10 px-4 py-6"
+              >
+                <div className="flex justify-between items-center mb-4 px-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    History
+                  </h3>
+                  <button
+                    onClick={() => setMobileHistoryOpen(false)}
+                    className="text-gray-400 hover:text-gray-900 dark:hover:text-white text-2xl leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+                <HistoryList
+                  historyLoading={historyLoading}
+                  groupedHistory={groupedHistory}
+                  onSelect={handleHistorySelect}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
         <div className="relative z-10 flex flex-1 max-w-7xl mx-auto w-full">
 
-          {/* Sidebar */}
+          {/* Desktop sidebar */}
           <AnimatePresence>
             {sidebarOpen && (
               <motion.aside
@@ -336,43 +444,11 @@ function App() {
                 className="hidden lg:block overflow-hidden border-r border-gray-200/50 dark:border-white/5"
               >
                 <div className="w-64 px-4 py-8">
-                  {Object.keys(groupedHistory).length === 0 ? (
-                    <>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4 px-2">
-                        Recent Research
-                      </h3>
-                      <p className="text-sm text-gray-400 dark:text-gray-600 px-2">
-                        Your research history will appear here.
-                      </p>
-                    </>
-                  ) : (
-                    Object.entries(groupedHistory).map(([date, items]) => (
-                      <div key={date} className="mb-6">
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 px-2">
-                          {date}
-                        </h3>
-                        <div className="space-y-1">
-                          {items.map((item, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                setTopic(item.topic);
-                                if (item.report) {
-                                  setResult(item.report);
-                                }
-                              }}
-                              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition group"
-                            >
-                              <p className="text-sm font-medium truncate group-hover:text-primary-500 transition">
-                                {item.topic}
-                              </p>
-                              <p className="text-xs text-gray-400 dark:text-gray-600">{item.time}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  <HistoryList
+                    historyLoading={historyLoading}
+                    groupedHistory={groupedHistory}
+                    onSelect={handleHistorySelect}
+                  />
                 </div>
               </motion.aside>
             )}
@@ -571,14 +647,14 @@ function App() {
           <div className="max-w-7xl mx-auto px-6 md:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-3">
-               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center">
-  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-    <circle cx="6" cy="6" r="2" fill="white"/>
-    <circle cx="18" cy="6" r="2" fill="white"/>
-    <circle cx="12" cy="18" r="2" fill="white"/>
-    <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-</div> 
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+                    <circle cx="6" cy="6" r="2" fill="white"/>
+                    <circle cx="18" cy="6" r="2" fill="white"/>
+                    <circle cx="12" cy="18" r="2" fill="white"/>
+                    <path d="M6 6L12 18M18 6L12 18M6 6L18 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
                 <span className="font-display font-bold text-lg">Nexus</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
