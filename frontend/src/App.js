@@ -1,19 +1,9 @@
+import { Analytics } from '@vercel/analytics/react';
 import jsPDF from 'jspdf';
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
-
-function getSmoothPath(points) {
-  if (points.length < 2) return '';
-  let path = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length - 1; i++) {
-    const xc = (points[i].x + points[i + 1].x) / 2;
-    const yc = (points[i].y + points[i + 1].y) / 2;
-    path += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
-  }
-  return path;
-}
 
 function getSessionId() {
   let id = localStorage.getItem('nexus_session_id');
@@ -22,6 +12,68 @@ function getSessionId() {
     localStorage.setItem('nexus_session_id', id);
   }
   return id;
+}
+
+function CursorTrail() {
+  const pointsRef = React.useRef([]);
+  const [, forceRender] = useState(0);
+  const rafRef = React.useRef();
+
+  useEffect(() => {
+    const handleMove = (e) => {
+      pointsRef.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+      if (pointsRef.current.length > 60) pointsRef.current.shift();
+    };
+    window.addEventListener('mousemove', handleMove);
+
+    const loop = () => {
+      const now = performance.now();
+      pointsRef.current = pointsRef.current.filter((p) => now - p.t < 400);
+      forceRender((n) => n + 1);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const points = pointsRef.current;
+  const now = performance.now();
+
+  return (
+    <svg className="hidden md:block pointer-events-none fixed inset-0 z-50 w-full h-full">
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {points.slice(1).map((p, i) => {
+        const prev = points[i];
+        const age = now - p.t;
+        const opacity = Math.max(0, 1 - age / 400);
+        const width = Math.max(0.5, 4 * opacity);
+        return (
+          <line
+            key={i}
+            x1={prev.x} y1={prev.y}
+            x2={p.x} y2={p.y}
+            stroke="#a855f7"
+            strokeWidth={width}
+            strokeLinecap="round"
+            opacity={opacity}
+            filter="url(#glow)"
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 function TiltCard({ children, className }) {
@@ -153,28 +205,9 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [trail, setTrail] = useState([]);
   const [followUp, setFollowUp] = useState('');
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [sessionId] = useState(getSessionId());
-
-  useEffect(() => {
-    let id = 0;
-    const moveCursor = (e) => {
-      id++;
-      setTrail((prev) => [...prev, { x: e.clientX, y: e.clientY, id }].slice(-15));
-    };
-    window.addEventListener('mousemove', moveCursor);
-
-    const fadeInterval = setInterval(() => {
-      setTrail((prev) => prev.slice(1));
-    }, 50);
-
-    return () => {
-      window.removeEventListener('mousemove', moveCursor);
-      clearInterval(fadeInterval);
-    };
-  }, []);
 
   useEffect(() => {
     setHistoryLoading(true);
@@ -205,15 +238,15 @@ function App() {
         body: JSON.stringify({ topic, session_id: sessionId }),
       });
       const data = await response.json();
-if (data.limit_reached) {
-  setResult("You've used your free researches for today — please come back tomorrow! 🙏");
-} else {
-  setResult(data.result);
-  setHistory((prev) => [
-    { topic, time: new Date().toLocaleTimeString(), date: 'Today', report: data.result },
-    ...prev
-  ].slice(0, 12));
-}
+      if (data.limit_reached) {
+        setResult("You've used your free researches for today — please come back tomorrow! 🙏");
+      } else {
+        setResult(data.result);
+        setHistory((prev) => [
+          { topic, time: new Date().toLocaleTimeString(), date: 'Today', report: data.result },
+          ...prev
+        ].slice(0, 12));
+      }
     } catch (error) {
       setResult('Something went wrong. Make sure the backend is running.');
     }
@@ -221,23 +254,23 @@ if (data.limit_reached) {
   };
 
   const handleFollowUp = async () => {
-  if (!followUp.trim()) return;
-  setFollowUpLoading(true);
+    if (!followUp.trim()) return;
+    setFollowUpLoading(true);
 
-  try {
-    const response = await fetch(`${API_URL}/research`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, session_id: sessionId, custom_instruction: followUp }),
-    });
-    const data = await response.json();
-    setResult(data.result);
-    setFollowUp('');
-  } catch (error) {
-    setResult('Something went wrong with the follow-up request. Please try again.');
-  }
-  setFollowUpLoading(false);
-};
+    try {
+      const response = await fetch(`${API_URL}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, session_id: sessionId, custom_instruction: followUp }),
+      });
+      const data = await response.json();
+      setResult(data.result);
+      setFollowUp('');
+    } catch (error) {
+      setResult('Something went wrong with the follow-up request. Please try again.');
+    }
+    setFollowUpLoading(false);
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(result);
@@ -293,32 +326,9 @@ if (data.limit_reached) {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen relative bg-[#fafaf9] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
+      <div className="min-h-screen relative bg-[#f7f6fb] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
 
-        {/* Cursor glow trail */}
-        <svg className="hidden md:block pointer-events-none fixed inset-0 z-50 w-full h-full">
-          <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          {trail.length > 1 && (
-            <path
-              d={getSmoothPath(trail)}
-              fill="none"
-              stroke="#a855f7"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              filter="url(#glow)"
-              opacity="0.9"
-            />
-          )}
-        </svg>
+        <CursorTrail />
 
         {/* Ambient gradient blobs */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -503,23 +513,23 @@ if (data.limit_reached) {
             </motion.div>
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-4">
-  Nexus can make mistakes. Verify important facts independently.
-</p>
+              Nexus can make mistakes. Verify important facts independently.
+            </p>
 
-{!result && !loading && (
-  <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-2 mb-12">
-    <span className="text-xs text-gray-400 dark:text-gray-600 self-center mr-1">Try:</span>
-    {['Climate tech in 2026', 'AI regulation in the EU', 'Quantum computing breakthroughs'].map((t) => (
-      <button
-        key={t}
-        onClick={() => setTopic(t)}
-        className="text-xs px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20 hover:bg-primary-500/20 transition"
-      >
-        {t}
-      </button>
-    ))}
-  </div>
-)}
+            {!result && !loading && (
+              <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-2 mb-12">
+                <span className="text-xs text-gray-400 dark:text-gray-600 self-center mr-1">Try:</span>
+                {['Climate tech in 2026', 'AI regulation in the EU', 'Quantum computing breakthroughs'].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTopic(t)}
+                    className="text-xs px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20 hover:bg-primary-500/20 transition"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {!result && !loading && (
               <motion.div
@@ -699,6 +709,7 @@ if (data.limit_reached) {
           </div>
         </footer>
       </div>
+      <Analytics />
     </div>
   );
 }
