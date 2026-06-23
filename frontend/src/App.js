@@ -15,21 +15,31 @@ function getSessionId() {
 }
 
 function CursorTrail() {
-  const pointsRef = React.useRef([]);
-  const [, forceRender] = useState(0);
+  const trailRef = React.useRef([]);
+  const mousePos = React.useRef({ x: -100, y: -100 });
+  const [path, setPath] = useState('');
   const rafRef = React.useRef();
 
   useEffect(() => {
     const handleMove = (e) => {
-      pointsRef.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
-      if (pointsRef.current.length > 60) pointsRef.current.shift();
+      mousePos.current = { x: e.clientX, y: e.clientY };
     };
     window.addEventListener('mousemove', handleMove);
 
     const loop = () => {
-      const now = performance.now();
-      pointsRef.current = pointsRef.current.filter((p) => now - p.t < 400);
-      forceRender((n) => n + 1);
+      const trail = trailRef.current;
+      trail.push({ ...mousePos.current });
+      if (trail.length > 20) trail.shift();
+
+      if (trail.length > 1) {
+        let d = `M ${trail[0].x} ${trail[0].y}`;
+        for (let i = 1; i < trail.length - 1; i++) {
+          const xc = (trail[i].x + trail[i + 1].x) / 2;
+          const yc = (trail[i].y + trail[i + 1].y) / 2;
+          d += ` Q ${trail[i].x} ${trail[i].y} ${xc} ${yc}`;
+        }
+        setPath(d);
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -40,38 +50,27 @@ function CursorTrail() {
     };
   }, []);
 
-  const points = pointsRef.current;
-  const now = performance.now();
-
   return (
     <svg className="hidden md:block pointer-events-none fixed inset-0 z-50 w-full h-full">
       <defs>
         <filter id="glow">
-          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feGaussianBlur stdDeviation="5" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      {points.slice(1).map((p, i) => {
-        const prev = points[i];
-        const age = now - p.t;
-        const opacity = Math.max(0, 1 - age / 400);
-        const width = Math.max(0.5, 4 * opacity);
-        return (
-          <line
-            key={i}
-            x1={prev.x} y1={prev.y}
-            x2={p.x} y2={p.y}
-            stroke="#a855f7"
-            strokeWidth={width}
-            strokeLinecap="round"
-            opacity={opacity}
-            filter="url(#glow)"
-          />
-        );
-      })}
+      <path
+        d={path}
+        fill="none"
+        stroke="#a855f7"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter="url(#glow)"
+        opacity="0.9"
+      />
     </svg>
   );
 }
@@ -326,7 +325,7 @@ function App() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen relative bg-[#f7f6fb] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
+      <div className="min-h-screen relative bg-[#f4f1e8] dark:bg-[#05050a] text-gray-900 dark:text-white transition-colors duration-300 overflow-x-hidden flex flex-col cursor-default">
 
         <CursorTrail />
 
