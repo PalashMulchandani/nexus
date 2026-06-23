@@ -77,9 +77,12 @@ def run_research_agent(topic: str, session_id: str, custom_instruction: str = No
             return past[0] + "\n\n*(Retrieved from cache — previously researched)*"
 
     if custom_instruction:
-        prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {search_memory(topic, session_id)}"
+       past_context = search_memory(topic, session_id)
+       context_text = past_context[0] if past_context else ""
+       truncated_context = context_text[:3000]
+       prompt = f"Refine this existing research on '{topic}' based on this instruction: {custom_instruction}\n\nOriginal research context: {truncated_context}" 
     else:
-        prompt = f"""Research this topic thoroughly: {topic}
+       prompt = f"""Research this topic thoroughly: {topic}
 
 Write a comprehensive, detailed report with the following structure:
 1. A clear title
@@ -106,4 +109,7 @@ Make the report substantial and informative — aim for depth and thoroughness, 
         return final
 
     except Exception as e:
-        return f"Something went wrong while researching. Error: {str(e)}"
+        error_str = str(e)
+        if "rate_limit_exceeded" in error_str or "429" in error_str or "413" in error_str:
+            return "Nexus is experiencing high demand right now. Please try again in a minute."
+        return "Something went wrong while researching. Please try again."

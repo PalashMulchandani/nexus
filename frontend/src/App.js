@@ -221,23 +221,23 @@ if (data.limit_reached) {
   };
 
   const handleFollowUp = async () => {
-    if (!followUp.trim()) return;
-    setFollowUpLoading(true);
+  if (!followUp.trim()) return;
+  setFollowUpLoading(true);
 
-    try {
-      const response = await fetch(`${API_URL}/research`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, session_id: sessionId, custom_instruction: followUp }),
-      });
-      const data = await response.json();
-      setResult(data.result);
-      setFollowUp('');
-    } catch (error) {
-      alert('Something went wrong with the follow-up request.');
-    }
-    setFollowUpLoading(false);
-  };
+  try {
+    const response = await fetch(`${API_URL}/research`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, session_id: sessionId, custom_instruction: followUp }),
+    });
+    const data = await response.json();
+    setResult(data.result);
+    setFollowUp('');
+  } catch (error) {
+    setResult('Something went wrong with the follow-up request. Please try again.');
+  }
+  setFollowUpLoading(false);
+};
 
   const handleCopy = () => {
     navigator.clipboard.writeText(result);
