@@ -125,18 +125,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/history?session_id=${sessionId}`)
-      .then((data) => {
-        const formattedHistory = data.history.map((item) => ({
-          topic: item.topic,
-          time: '',
-          date: 'Previously researched',
-          report: item.report
-        }));
-        setHistory(formattedHistory);
-      })
-      .catch((err) => console.log('Could not load history:', err));
-  }, [sessionId]);
+  fetch(`${API_URL}/history?session_id=${sessionId}`)
+    .then((res) => res.json())
+    .then((data) => {
+      const formattedHistory = (data.history || []).map((item) => ({
+        topic: item.topic,
+        time: '',
+        date: 'Previously researched',
+        report: item.report
+      }));
+      setHistory(formattedHistory);
+    })
+    .catch((err) => console.log('Could not load history:', err));
+}, [sessionId]);
 
   const handleResearch = async () => {
     if (!topic.trim()) return;
