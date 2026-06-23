@@ -511,9 +511,12 @@ function App() {
               </button>
             </motion.div>
 
-            <p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-4">
-              Nexus can make mistakes. Verify important facts independently.
-            </p>
+            <p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-1">
+  Nexus can make mistakes. Verify important facts independently.
+</p>
+<p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-4">
+  5 free research topics per day · unlimited follow-up refinements
+</p>
 
             {!result && !loading && (
               <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-2 mb-12">
