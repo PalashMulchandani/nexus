@@ -205,12 +205,15 @@ function App() {
         body: JSON.stringify({ topic, session_id: sessionId }),
       });
       const data = await response.json();
-      console.log('API Response:', data);
-      setResult(data.result);
-      setHistory((prev) => [
-        { topic, time: new Date().toLocaleTimeString(), date: 'Today', report: data.result },
-        ...prev
-      ].slice(0, 12));
+if (data.limit_reached) {
+  setResult("You've used your free researches for today — please come back tomorrow! 🙏");
+} else {
+  setResult(data.result);
+  setHistory((prev) => [
+    { topic, time: new Date().toLocaleTimeString(), date: 'Today', report: data.result },
+    ...prev
+  ].slice(0, 12));
+}
     } catch (error) {
       setResult('Something went wrong. Make sure the backend is running.');
     }
@@ -460,7 +463,7 @@ function App() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="max-w-2xl mx-auto text-center mb-10"
+              className="max-w-4xl mx-auto text-center mb-10"
             >
               <span className="inline-block px-3 py-1 rounded-full bg-primary-500/10 text-primary-500 text-xs font-semibold mb-5 border border-primary-500/20">
                 AUTONOMOUS RESEARCH AGENT
@@ -480,7 +483,7 @@ function App() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3 mb-3"
+              className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-3 mb-3"
             >
               <input
                 type="text"
@@ -499,16 +502,31 @@ function App() {
               </button>
             </motion.div>
 
-            <p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-12">
-              Nexus can make mistakes. Verify important facts independently.
-            </p>
+            <p className="text-center text-xs text-gray-400 dark:text-gray-600 mb-4">
+  Nexus can make mistakes. Verify important facts independently.
+</p>
+
+{!result && !loading && (
+  <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-2 mb-12">
+    <span className="text-xs text-gray-400 dark:text-gray-600 self-center mr-1">Try:</span>
+    {['Climate tech in 2026', 'AI regulation in the EU', 'Quantum computing breakthroughs'].map((t) => (
+      <button
+        key={t}
+        onClick={() => setTopic(t)}
+        className="text-xs px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20 hover:bg-primary-500/20 transition"
+      >
+        {t}
+      </button>
+    ))}
+  </div>
+)}
 
             {!result && !loading && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"
+                className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"
               >
                 {[
                   { icon: '🔍', title: 'Live Web Search', desc: 'Real-time data, not stale training info' },
