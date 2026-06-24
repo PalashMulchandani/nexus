@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 usage_tracker = {}
-DAILY_LIMIT = 5
+DAILY_LIMIT = 7
 
 class ResearchRequest(BaseModel):
     topic: str
