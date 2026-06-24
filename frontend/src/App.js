@@ -707,7 +707,7 @@ function App() {
             </div>
           </div>
           <div className="border-t border-gray-200/50 dark:border-white/5 py-6 text-center text-gray-400 dark:text-gray-500 text-sm">
-            © 2026 Nexus · Built by Palash Mulchandani
+           Nexus © 2026 · Built by Palash Mulchandani
           </div>
         </footer>
       </div>
