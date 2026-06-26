@@ -38,7 +38,7 @@ def search_memory(query: str, session_id: str):
         if results["distances"][0][0] < 0.5:
             return results["documents"][0]
     return []
-
+# loops and enumerate (most debugs happened here)
 def get_all_history(session_id: str):
     all_data = collection.get(where={"session_id": session_id})
     history = []
@@ -76,7 +76,7 @@ def run_research_agent(topic: str, session_id: str, custom_instruction: str = No
         past = search_memory(topic, session_id)
         if past:
             return past[0] + "\n\n*(Retrieved from cache — previously researched)*"
-
+# follow up section for custom instructions
     if custom_instruction:
        past_context = search_memory(topic, session_id)
        context_text = past_context[0] if past_context else ""
@@ -88,7 +88,7 @@ def run_research_agent(topic: str, session_id: str, custom_instruction: str = No
 Write a comprehensive, detailed report with the following structure:
 1. A clear title
 2. An introduction/overview section (2-3 paragraphs)
-3. At least 3-4 main sections with headers, each containing detailed information, examples, and context (3-4 paragraphs each)
+3. At least 3-4 main sections with headers, each containing detailed information, examples, images and context (3-4 paragraphs each)
 4. A conclusion section
 
 Make the report substantial and informative — aim for depth and thoroughness, not brevity. Use markdown formatting with ## for headers."""
