@@ -50,7 +50,7 @@ def get_all_history(session_id: str):
         })
     return history
 
-# LLM
+# LLM + tools setup
 def get_llm():
     return ChatGroq(
         model="llama-3.3-70b-versatile",
@@ -68,6 +68,7 @@ search_tool = TavilySearchResults(
 tools = [search_tool]
 
 # Create agent
+#ties everything together
 agent = create_react_agent(llm, tools)
 
 def run_research_agent(topic: str, session_id: str, custom_instruction: str = None):
@@ -107,7 +108,7 @@ Make the report substantial and informative — aim for depth and thoroughness, 
             save_to_memory(topic, final, session_id)
 
         return final
-
+#limit statement to handle rate limit and other errors gracefully
     except Exception as e:
         error_str = str(e)
         if "rate_limit_exceeded" in error_str or "429" in error_str or "413" in error_str:
