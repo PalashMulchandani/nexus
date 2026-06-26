@@ -88,7 +88,7 @@ def run_research_agent(topic: str, session_id: str, custom_instruction: str = No
 Write a comprehensive, detailed report with the following structure:
 1. A clear title
 2. An introduction/overview section (2-3 paragraphs)
-3. At least 3-4 main sections with headers, each containing detailed information, examples, images and context (3-4 paragraphs each)
+3. At least 3-4 main sections with headers, each containing detailed information, examples, and context (3-4 paragraphs each)
 4. A conclusion section
 
 Make the report substantial and informative — aim for depth and thoroughness, not brevity. Use markdown formatting with ## for headers."""
