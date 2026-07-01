@@ -8,7 +8,7 @@ Unlike typical "ChatGPT wrapper" projects, Nexus uses an agentic architecture (L
 
 ## Live Demo
 
-🔗 **[Try Nexus live](#)** *(add your deployed link here)*
+🔗 nexus-chi-dun-88.vercel.app
 
 ---
 
